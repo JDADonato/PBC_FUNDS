@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PBC Finance Portal | Pilgrims Baptist Church</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <header class="mobile-header no-print">
+        <div class="mobile-brand">
+            <img src="youth_green.png" alt="PBC Logo">
+            <div class="brand-text-mobile">
+                <span class="pbc-name-sm">PILGRIMS BAPTIST</span>
+                <span class="pbc-sub-sm">FINANCE PORTAL</span>
+            </div>
+        </div>
+        <button class="hamburger-btn" onclick="toggleMenu()" aria-label="Toggle Menu">
+            <i data-lucide="menu"></i>
+        </button>
+    </header>
+
+    <div class="main-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="brand no-mobile">
+                <img src="youth_white.png" alt="PBC White Logo">
+                <div class="brand-text">
+                    <span class="pbc-name">PILGRIMS BAPTIST</span>
+                    <span class="pbc-sub">CHURCH</span>
+                </div>
+            </div>
+            
+            <nav class="nav-links">
+                <button class="nav-btn active" onclick="showSection('income', this)">
+                    <i data-lucide="arrow-down-to-line"></i> <span>Income Tracker</span>
+                </button>
+                <button class="nav-btn" onclick="showSection('expenses', this)">
+                    <i data-lucide="arrow-up-from-line"></i> <span>Expense Ledger</span>
+                </button>
+                <button class="nav-btn" onclick="showSection('reports', this)">
+                    <i data-lucide="file-bar-chart"></i> <span>Financial Reports</span>
+                </button>
+                <button class="nav-btn" onclick="showSection('settings', this)">
+                    <i data-lucide="settings"></i> <span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer no-mobile">
+                <p>© 2025 Pilgrims Baptist Church</p>
+            </div>
+        </aside>
+
+        <main class="viewport">
+            <header class="top-nav no-mobile">
+                <div class="breadcrumb">
+                    PORTAL / <span id="current-view">INCOME</span>
+                </div>
+                <div class="user-status">
+                    <span class="status-dot"></span>
+                    <span id="sync-text">Cloud Sync Active</span>
+                </div>
+            </header>
+
+            <div id="content-render" class="content-container">
+                </div>
+        </main>
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay">
+        
+        <div id="password-modal" class="modal-card hidden">
+            <div class="modal-header">
+                <i data-lucide="shield-check" class="icon-primary"></i>
+                <h3>Admin Verification</h3>
+            </div>
+            <p>Please enter the administrative password to authorize this action.</p>
+            <div class="input-field">
+                <input type="password" id="admin-pw-input" placeholder="Enter Password">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModals()">Cancel</button>
+                <button class="btn-action" onclick="verifyAdmin()">Verify Identity</button>
+            </div>
+        </div>
+
+        <div id="edit-modal" class="modal-card hidden modal-wide">
+            <div class="modal-header">
+                <i data-lucide="edit-3" class="icon-primary"></i>
+                <h3>Manage Record</h3>
+            </div>
+            <div id="edit-form-container" class="form-grid">
+                </div>
+            <div class="modal-actions-alt">
+                <button class="btn-danger-outline" onclick="confirmInternalDelete()">
+                    <i data-lucide="trash-2"></i> Delete
+                </button>
+                <div class="right-actions">
+                    <button class="btn-secondary" onclick="closeModals()">Discard</button>
+                    <button class="btn-action" id="save-edit-btn">Update Ledger</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="delete-modal" class="modal-card hidden">
+            <div class="modal-header">
+                <i data-lucide="alert-triangle" class="icon-danger"></i>
+                <h3 style="color: #b91c1c;">Confirm Deletion</h3>
+            </div>
+            <p>Are you sure you want to permanently remove this record? This action cannot be undone.</p>
+            <div id="delete-info-summary" class="record-preview" style="background: #fff1f2; border: 1px solid #fecdd3; padding: 15px; border-radius: 12px; margin: 15px 0;">
+                </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModals()">Keep Record</button>
+                <button class="btn-action" style="background: #b91c1c;" onclick="executeDelete()">Delete Permanently</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

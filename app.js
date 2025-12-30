@@ -352,3 +352,9 @@ function addSet(t) { const v = document.getElementById(t==='inc'?'ni':'ne').valu
 function delSet(t,i) { if(t==='inc') incSources.splice(i,1); else expCats.splice(i,1); localStorage.setItem(t==='inc'?'pbc_inc':'pbc_exp', JSON.stringify(t==='inc'?incSources:expCats)); showSection('settings'); }
 
 window.onload = () => { showSection('income', document.querySelector('.nav-btn')); lucide.createIcons(); };
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+    .then(() => console.log("Service Worker Registered"))
+    .catch((err) => console.log("Service Worker Failed", err));
+}

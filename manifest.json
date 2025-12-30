@@ -1,0 +1,21 @@
+{
+  "short_name": "PB Church",
+  "name": "Pilgrims Baptist Finance",
+  "icons": [
+    {
+      "src": "youth_green.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "youth_green.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/index.html",
+  "background_color": "#FFFFFF",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#556B2F"
+}

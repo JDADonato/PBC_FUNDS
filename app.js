@@ -1,6 +1,6 @@
 /**
  * PILGRIMS BAPTIST CHURCH - FINANCE PORTAL
- * Logic Engine: Gesture-Based Management & Cloud Sync
+ * Logic Engine: Audit Logs, Offline Resilience, Password Visibility, and Data Portability
  */
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwnY1HKQfGRhwqbmNX9d3bZCVFVc5XOjKhkOUB6rhAo7rWbXpWy9Kvx7_JQ3WYZttTG/exec";
@@ -12,20 +12,35 @@ let expCats = JSON.parse(localStorage.getItem('pbc_exp')) || ['Outdoor Fellowshi
 let currentReportData = { income: [], expenses: [] };
 let pendingAction = null; 
 
-// --- NAVIGATION & MOBILE MENU ---
+// --- OFFLINE QUEUE LOGIC ---
+let offlineQueue = JSON.parse(localStorage.getItem('pbc_offline_queue')) || [];
+
+async function syncOfflineData() {
+    if (offlineQueue.length === 0 || !navigator.onLine) return;
+    
+    notify(`Syncing ${offlineQueue.length} offline records...`, "refresh-cw");
+    
+    for (const item of [...offlineQueue]) {
+        try {
+            await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(item), mode: 'no-cors' });
+            offlineQueue.shift(); 
+            localStorage.setItem('pbc_offline_queue', JSON.stringify(offlineQueue));
+        } catch (e) { break; }
+    }
+    notify("Offline Sync Complete", "check-circle");
+}
+
+window.addEventListener('online', syncOfflineData);
+
+// --- NAVIGATION ---
 function toggleMenu() {
-    const sidebar = document.getElementById('sidebar');
-    sidebar.classList.toggle('open');
+    document.getElementById('sidebar').classList.toggle('open');
 }
 
 function showSection(section, btn) {
-    if (window.innerWidth <= 992) {
-        document.getElementById('sidebar').classList.remove('open');
-    }
-
+    if (window.innerWidth <= 992) document.getElementById('sidebar').classList.remove('open');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-
     document.getElementById('current-view').innerText = section.toUpperCase();
     const render = document.getElementById('content-render');
     render.innerHTML = ''; 
@@ -43,7 +58,7 @@ function showSection(section, btn) {
 function renderIncomeForm(container) {
     container.innerHTML = `
         <div class="stat-card fade-in">
-            <h3 style="margin-bottom:25px"><i data-lucide="plus-circle" style="color:var(--primary)"></i> Record Income</h3>
+            <h3 style="margin-bottom:25px"> Record Income</h3>
             <div class="form-grid">
                 <div class="input-field"><label>Date</label><input type="date" id="f-date" value="${new Date().toISOString().split('T')[0]}"></div>
                 <div class="input-field"><label>Schedule</label><select id="f-week"><option>Week 1</option><option>Week 2</option><option>Week 3</option><option>Week 4</option><option>Week 5</option></select></div>
@@ -58,7 +73,7 @@ function renderIncomeForm(container) {
 function renderExpenseForm(container) {
     container.innerHTML = `
         <div class="stat-card fade-in">
-            <h3 style="margin-bottom:25px; color:#b91c1c"><i data-lucide="minus-circle"></i> Record Expenditure</h3>
+            <h3 style="margin-bottom:25px; color:#b91c1c"> Record Expenditure</h3>
             <div class="form-grid">
                 <div class="input-field"><label>Date</label><input type="date" id="f-date" value="${new Date().toISOString().split('T')[0]}"></div>
                 <div class="input-field"><label>Category</label><select id="f-category">${expCats.map(s => `<option>${s}</option>`).join('')}</select></div>
@@ -69,25 +84,52 @@ function renderExpenseForm(container) {
         </div>`;
 }
 
-// --- REPORTS & FILTERING ---
+// --- SUBMISSION LOGIC ---
+async function handleSubmit(type) {
+    const amount = document.getElementById('f-amount').value;
+    const recorder = document.getElementById('f-recorder').value;
+    if(!amount || !recorder) return notify("All fields required", "alert-circle");
+    
+    const data = { 
+        type, 
+        date: document.getElementById('f-date').value, 
+        amount, 
+        recorder: recorder.toUpperCase(), 
+        week: document.getElementById('f-week')?.value || '', 
+        source: document.getElementById('f-source')?.value || '', 
+        category: document.getElementById('f-category')?.value || '',
+        audit: `Created: ${new Date().toLocaleString()} by ${recorder.toUpperCase()}`
+    };
+
+    if (!navigator.onLine) {
+        offlineQueue.push(data);
+        localStorage.setItem('pbc_offline_queue', JSON.stringify(offlineQueue));
+        notify("Saved Locally (Offline Mode)", "cloud-off");
+        showSection('income');
+        return;
+    }
+
+    notify("Syncing...", "refresh-cw");
+    await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(data), mode: 'no-cors' });
+    notify("Data Saved", "check-circle");
+    showSection(type.toLowerCase());
+}
+
+// --- REPORTS & EXPORT ---
 async function renderReports(container) {
     container.innerHTML = `<div class="stat-card"><p>Synchronizing Ledger...</p></div>`;
     try {
         const res = await fetch(SCRIPT_URL);
         currentReportData = await res.json();
         renderFilteredReport();
-    } catch (e) { 
-        notify("Cloud connection failed", "cloud-off"); 
-    }
+    } catch (e) { notify("Cloud connection failed", "cloud-off"); }
 }
 
 function renderFilteredReport() {
     const container = document.getElementById('content-render');
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    
     const mSelect = document.getElementById('month-filter');
     const yInput = document.getElementById('year-filter');
-    
     const monthFilter = mSelect ? mSelect.value : 'all';
     const yearFilter = yInput ? yInput.value : new Date().getFullYear();
     const displayMonth = monthFilter === 'all' ? 'Annual' : monthNames[parseInt(monthFilter)];
@@ -99,7 +141,6 @@ function renderFilteredReport() {
 
     const fInc = (currentReportData.income || []).slice(1).filter(filterFn);
     const fExp = (currentReportData.expenses || []).slice(1).filter(filterFn);
-    
     const hasData = fInc.length > 0 || fExp.length > 0;
     const tInc = fInc.reduce((s, r) => s + (parseFloat(r[3]) || 0), 0);
     const tExp = fExp.reduce((s, r) => s + (parseFloat(r[3]) || 0), 0);
@@ -111,7 +152,16 @@ function renderFilteredReport() {
                 <option value="all">All</option>
                 ${monthNames.map((m,i)=>`<option value="${i}" ${monthFilter == i ? 'selected' : ''}>${m}</option>`).join('')}
             </select></div>
-            <button class="btn-action" onclick="exportPDF()" style="margin-left:auto"><i data-lucide="download"></i> PDF Report</button>
+            <div class="report-actions">
+                <button class="btn-secondary btn-export-csv" onclick="exportToCSV()" title="Export for Excel">
+                    <i data-lucide="file-spreadsheet"></i>
+                    <span class="btn-text-mobile">Export CSV</span>
+                </button>
+                <button class="btn-action btn-export-pdf" onclick="exportPDF()">
+                    <i data-lucide="download"></i>
+                    <span class="btn-text">PDF Report</span>
+                </button>
+            </div>
         </div>
         <div id="report-to-print">
             <div class="stat-card" style="padding: 20px 15px;">
@@ -120,46 +170,63 @@ function renderFilteredReport() {
                     <img src="youth_green.png" width="60">
                 </div>
                 <div class="summary-grid">
-                    <div class="mini-stat"><span>Income</span><strong>₱${tInc.toLocaleString()}</strong></div>
-                    <div class="mini-stat"><span>Expenses</span><strong style="color:#b91c1c">₱${tExp.toLocaleString()}</strong></div>
-                    <div class="mini-stat" style="background:var(--primary);"><span>Balance</span><strong>₱${(tInc - tExp).toLocaleString()}</strong></div>
+                    <div class="mini-stat"><span>Income</span><strong style="color:#3c6a4d">+₱${tInc.toLocaleString()}</strong></div>
+                    <div class="mini-stat"><span>Expenses</span><strong style="color:#b91c1c">-₱${tExp.toLocaleString()}</strong></div>
+                    <div class="mini-stat" style="background:var(--primary);"><span style="color: white;">Balance</span><strong style="color:#ffffff">₱${(tInc - tExp).toLocaleString()}</strong></div>
                 </div>
-                
                 ${hasData ? `
                     <table class="compact-table">
                         <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
-                        <tbody id="ledger-body">
-                            ${fInc.map(r => renderRow(r, 'Income')).join('')}
-                            ${fExp.map(r => renderRow(r, 'Expenses')).join('')}
-                        </tbody>
-                    </table>
-                ` : renderEmptyState()}
+                        <tbody id="ledger-body">${fInc.map(r => renderRow(r, 'Income')).join('')}${fExp.map(r => renderRow(r, 'Expenses')).join('')}</tbody>
+                    </table>` : renderEmptyState()}
             </div>
         </div>`;
-    
     if(hasData) attachGestureListeners();
     lucide.createIcons();
 }
 
 function renderRow(r, type) {
+    // Determine color and sign based on transaction type
+    const isIncome = type === 'Income';
+    const amountColor = isIncome ? '#3c6a4d' : '#b91c1c'; // Green for Income, Red for Expenses
+    const sign = isIncome ? '+' : '-';
+    
+    // Format the amount
+    const formattedAmount = `${sign}₱${parseFloat(r[3]).toLocaleString()}`;
+
     return `
-        <tr data-type="${type}" data-json='${JSON.stringify(r).replace(/'/g, "&apos;")}'>
-            <td>${new Date(r[1]).toLocaleDateString()}</td>
-            <td>${type === 'Income' ? r[5] : r[2]} <br><small style="color:gray">${r[4]}</small></td>
-            <td style="text-align:right">₱${parseFloat(r[3]).toLocaleString()}</td>
-        </tr>`;
+    <tr data-type="${type}" data-json='${JSON.stringify(r).replace(/'/g, "&apos;")}'>
+        <td>${new Date(r[1]).toLocaleDateString()}</td>
+        <td>
+            ${isIncome ? r[5] : r[2]} 
+            <br><small style="color:gray">${r[4]}</small>
+        </td>
+        <td style="text-align:right; font-weight: 700; color: ${amountColor}">
+            ${formattedAmount}
+        </td>
+    </tr>`;
 }
 
 function renderEmptyState() {
-    return `
-        <div style="text-align:center; padding: 40px 20px; color: var(--text-muted);">
-            <i data-lucide="folder-search" style="width:48px; height:48px; margin: 0 auto 15px; opacity:0.3; display:block;"></i>
-            <p style="font-weight:600; margin:0;">No records available</p>
-            <p style="font-size:0.8rem; margin-top:5px;">Try adjusting your filters or check your connection.</p>
-        </div>`;
+    return `<div style="text-align:center; padding: 40px 20px; color: var(--text-muted);">
+        <i data-lucide="folder-search" style="width:48px; height:48px; margin: 0 auto 15px; opacity:0.3; display:block;"></i>
+        <p style="font-weight:600; margin:0;">No records available</p>
+    </div>`;
 }
 
-// --- GESTURE ENGINE (Desktop: Click | Mobile: Long-Press) ---
+function exportToCSV() {
+    let csvContent = "data:text/csv;charset=utf-8,Type,Date,Description,Amount,Recorder,Audit Trail\n";
+    const all = [...currentReportData.income.slice(1).map(r => ['Income', ...r.slice(1)]), ...currentReportData.expenses.slice(1).map(r => ['Expense', ...r.slice(1)])];
+    all.forEach(row => { csvContent += row.join(",") + "\n"; });
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", "PBC_Finance_Ledger.csv");
+    document.body.appendChild(link);
+    link.click();
+    notify("Exported for Excel", "file-spreadsheet");
+}
+
+// --- GESTURES & PASSWORD MODAL ---
 function attachGestureListeners() {
     const rows = document.querySelectorAll('#ledger-body tr');
     let pressTimer;
@@ -169,34 +236,60 @@ function attachGestureListeners() {
         const rowData = JSON.parse(row.getAttribute('data-json'));
         const type = row.getAttribute('data-type');
 
-        row.addEventListener('touchstart', (e) => {
+        row.addEventListener('touchstart', () => {
             isLongPress = false;
-            pressTimer = window.setTimeout(() => {
-                isLongPress = true;
-                openPasswordModal('manage', type, rowData);
-            }, 700); 
+            pressTimer = window.setTimeout(() => { isLongPress = true; openPasswordModal('manage', type, rowData); }, 700); 
         }, { passive: true });
 
-        row.addEventListener('touchend', () => {
-            clearTimeout(pressTimer);
-        }, { passive: true });
+        row.addEventListener('touchend', () => { clearTimeout(pressTimer); }, { passive: true });
 
-        row.addEventListener('click', () => {
-            if (!isLongPress) {
-                openPasswordModal('manage', type, rowData);
-            }
-        });
+        row.addEventListener('click', () => { if (!isLongPress) openPasswordModal('manage', type, rowData); });
     });
 }
 
-// --- SECURITY & MODAL WORKFLOW ---
 function openPasswordModal(action, type, rowData) {
     pendingAction = { action, type, rowData };
     document.getElementById('modal-overlay').classList.add('active');
     document.querySelectorAll('.modal-card').forEach(m => m.classList.add('hidden'));
-    document.getElementById('password-modal').classList.remove('hidden');
-    document.getElementById('admin-pw-input').value = '';
+    
+    const pwModal = document.getElementById('password-modal');
+    pwModal.classList.remove('hidden');
+    
+    // Inject the password input with Eye Toggle
+    pwModal.innerHTML = `
+        <div class="modal-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+            <i data-lucide="shield-check" style="color: var(--primary)"></i>
+            <h3 style="margin: 0;">Admin Verification</h3>
+        </div>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">Authorize administrative actions with your secure password.</p>
+        <div class="input-field">
+            <div class="pw-wrapper">
+                <input type="password" id="admin-pw-input" placeholder="Enter Admin Password">
+                <div class="pw-toggle" onclick="togglePasswordVisibility()">
+                    <i id="pw-icon" data-lucide="eye"></i>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModals()">Cancel</button>
+            <button class="btn-action" onclick="verifyAdmin()">Verify Identity</button>
+        </div>
+    `;
+    
+    lucide.createIcons();
     document.getElementById('admin-pw-input').focus();
+}
+
+function togglePasswordVisibility() {
+    const pwInput = document.getElementById('admin-pw-input');
+    const pwIcon = document.getElementById('pw-icon');
+    if (pwInput.type === 'password') {
+        pwInput.type = 'text';
+        pwIcon.setAttribute('data-lucide', 'eye-off');
+    } else {
+        pwInput.type = 'password';
+        pwIcon.setAttribute('data-lucide', 'eye');
+    }
     lucide.createIcons();
 }
 
@@ -204,65 +297,68 @@ function verifyAdmin() {
     const pw = document.getElementById('admin-pw-input').value.replace(/\s/g, '').toLowerCase();
     if (pw === ADMIN_PASS) {
         document.getElementById('password-modal').classList.add('hidden');
-        if (pendingAction.action === 'manage') openEditModal();
-        else if (pendingAction.action === 'delete') openDeleteModal();
-    } else { 
-        notify("Incorrect Password", "shield-alert"); 
-    }
+        openEditModal();
+    } else { notify("Incorrect Password", "shield-alert"); }
 }
 
+// --- EDIT & DELETE LOGIC ---
 function openEditModal() {
     const d = pendingAction.rowData;
     const type = pendingAction.type;
     document.getElementById('edit-modal').classList.remove('hidden');
     const container = document.getElementById('edit-form-container');
-    
+    const auditInfo = d[6] || "No history available";
+
     container.innerHTML = `
         <div class="input-field"><label>Date</label><input type="date" id="e-date" value="${new Date(d[1]).toISOString().split('T')[0]}"></div>
         <div class="input-field"><label>Amount</label><input type="number" id="e-amount" value="${d[3]}"></div>
         <div class="input-field" style="grid-column: span 2"><label>Recorder</label><input type="text" id="e-recorder" value="${d[4]}"></div>
-        ${type==='Income' ? 
-            `<div class="input-field" style="grid-column: span 2"><label>Source</label><select id="e-source">${incSources.map(s=>`<option ${d[5]==s?'selected':''}>${s}</option>`).join('')}</select></div>` : 
-            `<div class="input-field" style="grid-column: span 2"><label>Category</label><select id="e-category">${expCats.map(s=>`<option ${d[2]==s?'selected':''}>${s}</option>`).join('')}</select></div>`
-        }`;
+        ${type==='Income' ? `<div class="input-field" style="grid-column: span 2"><label>Source</label><select id="e-source">${incSources.map(s=>`<option ${d[5]==s?'selected':''}>${s}</option>`).join('')}</select></div>` : 
+        `<div class="input-field" style="grid-column: span 2"><label>Category</label><select id="e-category">${expCats.map(s=>`<option ${d[2]==s?'selected':''}>${s}</option>`).join('')}</select></div>`}
+        <div class="audit-box" style="grid-column: span 2;">
+            <strong><i data-lucide="history" style="width:12px; height:12px;"></i> Audit Trail:</strong><br>
+            <span style="color: var(--text-muted); font-size: 0.7rem;">${auditInfo}</span>
+        </div>`;
     document.getElementById('save-edit-btn').onclick = executeEdit;
     lucide.createIcons();
 }
 
-function confirmInternalDelete() {
-    document.getElementById('edit-modal').classList.add('hidden');
-    openDeleteModal();
-}
-
-function openDeleteModal() {
-    const d = pendingAction.rowData;
-    document.getElementById('delete-modal').classList.remove('hidden');
-    document.getElementById('delete-info-summary').innerHTML = `
-        <strong>${pendingAction.type === 'Income' ? d[5] : d[2]}</strong><br>
-        ₱${parseFloat(d[3]).toLocaleString()} | ${new Date(d[1]).toLocaleDateString()}
-    `;
-}
-
-// --- CLOUD CRUD OPERATIONS ---
-async function handleSubmit(type) {
-    const amount = document.getElementById('f-amount').value;
-    const recorder = document.getElementById('f-recorder').value;
-    if(!amount || !recorder) return notify("All fields required", "alert-circle");
-    
-    const data = { type, date: document.getElementById('f-date').value, amount, recorder: recorder.toUpperCase(), week: document.getElementById('f-week')?.value || '', source: document.getElementById('f-source')?.value || '', category: document.getElementById('f-category')?.value || '' };
-    notify("Syncing...", "refresh-cw");
-    await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(data), mode: 'no-cors' });
-    notify("Data Saved", "check-circle");
-    showSection(type.toLowerCase());
-}
-
 async function executeEdit() {
-    const updateData = { action: "edit", type: pendingAction.type, oldTimestamp: pendingAction.rowData[0], date: document.getElementById('e-date').value, amount: document.getElementById('e-amount').value, recorder: document.getElementById('e-recorder').value.toUpperCase(), week: document.getElementById('e-week')?.value || '', source: document.getElementById('e-source')?.value || '', category: document.getElementById('e-category')?.value || '' };
+    const recorder = document.getElementById('e-recorder').value.toUpperCase();
+    const type = pendingAction.type;
+    
+    // Explicitly grab the correct value based on type
+    const sourceValue = type === 'Income' ? document.getElementById('e-source').value : '';
+    const categoryValue = type === 'Expenses' ? document.getElementById('e-category').value : '';
+
+    const updateData = { 
+        action: "edit", 
+        type: type, 
+        oldTimestamp: pendingAction.rowData[0], 
+        date: document.getElementById('e-date').value, 
+        amount: document.getElementById('e-amount').value, 
+        recorder: recorder, 
+        // Ensure audit trail is preserved and updated
+        audit: `${pendingAction.rowData[6] || ''} | Edited: ${new Date().toLocaleString()} by ${recorder}`,
+        // These keys must match exactly what your Google Apps Script expects
+        source: sourceValue, 
+        category: categoryValue,
+        // If your Income uses a 'week' field, ensure it is handled here as well
+        week: document.getElementById('e-week')?.value || (type === 'Income' ? pendingAction.rowData[2] : '')
+    };
+
     notify("Updating...", "refresh-cw");
-    await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(updateData), mode: 'no-cors' });
-    notify("Updated", "check-circle");
-    closeModals();
-    renderReports(document.getElementById('content-render'));
+    
+    try {
+        await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(updateData), mode: 'no-cors' });
+        notify("Updated Successfully", "check-circle");
+        closeModals();
+        // Refresh the report to show new name and restored Source
+        renderReports(document.getElementById('content-render'));
+    } catch (error) {
+        notify("Update Failed", "alert-circle");
+        console.error("Edit Error:", error);
+    }
 }
 
 async function executeDelete() {
@@ -271,6 +367,14 @@ async function executeDelete() {
     notify("Removed", "check-circle");
     closeModals();
     renderReports(document.getElementById('content-render'));
+}
+
+function confirmInternalDelete() { document.getElementById('edit-modal').classList.add('hidden'); openDeleteModal(); }
+
+function openDeleteModal() {
+    const d = pendingAction.rowData;
+    document.getElementById('delete-modal').classList.remove('hidden');
+    document.getElementById('delete-info-summary').innerHTML = `<strong>${pendingAction.type === 'Income' ? d[5] : d[2]}</strong><br>₱${parseFloat(d[3]).toLocaleString()}`;
 }
 
 // --- SETTINGS ---
@@ -323,35 +427,40 @@ function renderSettings(container) {
     lucide.createIcons();
 }
 
-// --- HELPERS & UTILS ---
+// --- HELPERS ---
 function closeModals() { document.getElementById('modal-overlay').classList.remove('active'); }
 
 function notify(message, iconName) {
-    const t = document.createElement('div');
-    t.className = 'toast-msg';
+    const t = document.createElement('div'); t.className = 'toast-msg';
     t.style.display = 'flex';
     t.style.alignItems = 'center';
     t.style.gap = '10px';
-    
-    t.innerHTML = `
-        <i data-lucide="${iconName}" style="width:18px; height:18px;"></i>
-        <span>${message}</span>
-    `;
-    
+    t.innerHTML = `<i data-lucide="${iconName}" style="width:18px; height:18px;"></i><span>${message}</span>`;
     document.getElementById('toast-container').appendChild(t);
     lucide.createIcons(); 
-    
-    setTimeout(() => { 
-        t.style.opacity = '0'; 
-        setTimeout(() => t.remove(), 400); 
-    }, 3500);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 3500);
 }
 
 function exportPDF() { html2pdf().from(document.getElementById('report-to-print')).set({ margin: 0.5, filename: 'PBC_Report.pdf' }).save(); }
-function addSet(t) { const v = document.getElementById(t==='inc'?'ni':'ne').value; if(!v) return; if(t==='inc') incSources.push(v); else expCats.push(v); localStorage.setItem(t==='inc'?'pbc_inc':'pbc_exp', JSON.stringify(t==='inc'?incSources:expCats)); showSection('settings'); }
-function delSet(t,i) { if(t==='inc') incSources.splice(i,1); else expCats.splice(i,1); localStorage.setItem(t==='inc'?'pbc_inc':'pbc_exp', JSON.stringify(t==='inc'?incSources:expCats)); showSection('settings'); }
 
-window.onload = () => { showSection('income', document.querySelector('.nav-btn')); lucide.createIcons(); };
+function addSet(t) { 
+    const v = document.getElementById(t==='inc'?'ni':'ne').value; 
+    if(!v) return; 
+    if(t==='inc') incSources.push(v); else expCats.push(v); 
+    localStorage.setItem(t==='inc'?'pbc_inc':'pbc_exp', JSON.stringify(t==='inc'?incSources:expCats)); 
+    showSection('settings'); 
+}
+
+function delSet(t,i) { 
+    if(t==='inc') incSources.splice(i,1); else expCats.splice(i,1); 
+    localStorage.setItem(t==='inc'?'pbc_inc':'pbc_exp', JSON.stringify(t==='inc'?incSources:expCats)); 
+    showSection('settings'); 
+}
+
+window.onload = () => { 
+    syncOfflineData(); 
+    showSection('income', document.querySelector('.nav-btn')); 
+};
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js')

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PBC Finance Portal | Pilgrims Baptist Church</title>
+    <title>PBC Finance Portal</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
     
@@ -77,13 +77,13 @@
     <div id="modal-overlay" class="modal-overlay">
         
         <div id="password-modal" class="modal-card hidden">
-            <div class="modal-header">
-                <i data-lucide="shield-check" class="icon-primary"></i>
-                <h3>Admin Verification</h3>
+            <div class="modal-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                <i data-lucide="shield-check" style="color: var(--primary)"></i>
+                <h3 style="margin: 0;">Admin Verification</h3>
             </div>
-            <p>Please enter the administrative password to authorize this action.</p>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">Authorize administrative actions with your secure password.</p>
             <div class="input-field">
-                <input type="password" id="admin-pw-input" placeholder="Enter Password">
+                <input type="password" id="admin-pw-input" placeholder="Enter Admin Password">
             </div>
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="closeModals()">Cancel</button>
@@ -92,33 +92,33 @@
         </div>
 
         <div id="edit-modal" class="modal-card hidden modal-wide">
-            <div class="modal-header">
-                <i data-lucide="edit-3" class="icon-primary"></i>
-                <h3>Manage Record</h3>
+            <div class="modal-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                <i data-lucide="edit-3" style="color: var(--primary)"></i>
+                <h3 style="margin: 0;">Manage Record</h3>
             </div>
             <div id="edit-form-container" class="form-grid">
                 </div>
             <div class="modal-actions-alt">
                 <button class="btn-danger-outline" onclick="confirmInternalDelete()">
-                    <i data-lucide="trash-2"></i> Delete
+                     Delete
                 </button>
                 <div class="right-actions">
                     <button class="btn-secondary" onclick="closeModals()">Discard</button>
-                    <button class="btn-action" id="save-edit-btn">Update Ledger</button>
+                    <button class="btn-action" id="save-edit-btn">Update</button>
                 </div>
             </div>
         </div>
 
         <div id="delete-modal" class="modal-card hidden">
-            <div class="modal-header">
-                <i data-lucide="alert-triangle" class="icon-danger"></i>
-                <h3 style="color: #b91c1c;">Confirm Deletion</h3>
+            <div class="modal-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                <i data-lucide="alert-triangle" style="color: #b91c1c;"></i>
+                <h3 style="margin: 0; color: #b91c1c;">Confirm Deletion</h3>
             </div>
-            <p>Are you sure you want to permanently remove this record? This action cannot be undone.</p>
-            <div id="delete-info-summary" class="record-preview" style="background: #fff1f2; border: 1px solid #fecdd3; padding: 15px; border-radius: 12px; margin: 15px 0;">
+            <p style="font-size: 0.9rem;">Are you sure? This will permanently remove the record from the cloud ledger.</p>
+            <div id="delete-info-summary" style="background: #fff1f2; border: 1px solid #fecdd3; padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 0.85rem;">
                 </div>
             <div class="modal-actions">
-                <button class="btn-secondary" onclick="closeModals()">Keep Record</button>
+                <button class="btn-secondary" onclick="closeModals()">Cancel</button>
                 <button class="btn-action" style="background: #b91c1c;" onclick="executeDelete()">Delete Permanently</button>
             </div>
         </div>
@@ -128,8 +128,5 @@
     <div id="toast-container"></div>
 
     <script src="app.js"></script>
-    <script>
-        lucide.createIcons();
-    </script>
 </body>
 </html>

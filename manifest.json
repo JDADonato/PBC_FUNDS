@@ -1,6 +1,6 @@
 {
-  "short_name": "PB Church",
-  "name": "Pilgrims Baptist Finance",
+  "short_name": "PBC Finance",
+  "name": "PBC Church Finance Portal",
   "icons": [
     {
       "src": "youth_green.png",
@@ -13,9 +13,9 @@
       "type": "image/png"
     }
   ],
-  "start_url": "/index.html",
-  "background_color": "#FFFFFF",
+  "start_url": "index.html",
+  "background_color": "#f4f7f5",
+  "theme_color": "#3c6a4d",
   "display": "standalone",
-  "scope": "/",
-  "theme_color": "#556B2F"
+  "orientation": "portrait"
 }

@@ -99,6 +99,8 @@ function renderFilteredReport() {
 
     const fInc = (currentReportData.income || []).slice(1).filter(filterFn);
     const fExp = (currentReportData.expenses || []).slice(1).filter(filterFn);
+    
+    const hasData = fInc.length > 0 || fExp.length > 0;
     const tInc = fInc.reduce((s, r) => s + (parseFloat(r[3]) || 0), 0);
     const tExp = fExp.reduce((s, r) => s + (parseFloat(r[3]) || 0), 0);
 
@@ -122,17 +124,20 @@ function renderFilteredReport() {
                     <div class="mini-stat"><span>Expenses</span><strong style="color:#b91c1c">₱${tExp.toLocaleString()}</strong></div>
                     <div class="mini-stat" style="background:var(--primary);"><span>Balance</span><strong>₱${(tInc - tExp).toLocaleString()}</strong></div>
                 </div>
-                <table class="compact-table">
-                    <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
-                    <tbody id="ledger-body">
-                        ${fInc.map(r => renderRow(r, 'Income')).join('')}
-                        ${fExp.map(r => renderRow(r, 'Expenses')).join('')}
-                    </tbody>
-                </table>
+                
+                ${hasData ? `
+                    <table class="compact-table">
+                        <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+                        <tbody id="ledger-body">
+                            ${fInc.map(r => renderRow(r, 'Income')).join('')}
+                            ${fExp.map(r => renderRow(r, 'Expenses')).join('')}
+                        </tbody>
+                    </table>
+                ` : renderEmptyState()}
             </div>
         </div>`;
     
-    attachGestureListeners();
+    if(hasData) attachGestureListeners();
     lucide.createIcons();
 }
 
@@ -143,6 +148,15 @@ function renderRow(r, type) {
             <td>${type === 'Income' ? r[5] : r[2]} <br><small style="color:gray">${r[4]}</small></td>
             <td style="text-align:right">₱${parseFloat(r[3]).toLocaleString()}</td>
         </tr>`;
+}
+
+function renderEmptyState() {
+    return `
+        <div style="text-align:center; padding: 40px 20px; color: var(--text-muted);">
+            <i data-lucide="folder-search" style="width:48px; height:48px; margin: 0 auto 15px; opacity:0.3; display:block;"></i>
+            <p style="font-weight:600; margin:0;">No records available</p>
+            <p style="font-size:0.8rem; margin-top:5px;">Try adjusting your filters or check your connection.</p>
+        </div>`;
 }
 
 // --- GESTURE ENGINE (Desktop: Click | Mobile: Long-Press) ---
@@ -325,7 +339,7 @@ function notify(message, iconName) {
     `;
     
     document.getElementById('toast-container').appendChild(t);
-    lucide.createIcons(); // Initialize the new icon inside the toast
+    lucide.createIcons(); 
     
     setTimeout(() => { 
         t.style.opacity = '0'; 

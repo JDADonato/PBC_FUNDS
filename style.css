@@ -140,6 +140,7 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
 
 /* --- TABLES & INTERACTIVE ROWS --- */
 .compact-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.compact-table th, .compact-table td { white-space: nowrap; width: 1%; }
 .compact-table th { text-align: left; padding: 15px; border-bottom: 2px solid var(--bg-light); color: var(--text-muted); font-weight: 700; }
 .compact-table td { padding: 15px; border-bottom: 1px solid #f8fafc; }
 

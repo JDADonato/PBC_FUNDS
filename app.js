@@ -1,3 +1,8 @@
+/**
+ * PILGRIMS BAPTIST CHURCH - FINANCE PORTAL
+ * Logic Engine: Audit Logs, Offline Resilience, Password Visibility, and Data Portability
+ */
+
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwnY1HKQfGRhwqbmNX9d3bZCVFVc5XOjKhkOUB6rhAo7rWbXpWy9Kvx7_JQ3WYZttTG/exec";
 const ADMIN_PASS = "pilgrimsbaptistchurch";
 
@@ -123,15 +128,27 @@ async function renderReports(container) {
 function renderFilteredReport() {
     const container = document.getElementById('content-render');
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const mSelect = document.getElementById('month-filter');
     const yInput = document.getElementById('year-filter');
-    const monthFilter = mSelect ? mSelect.value : 'all';
+    const mFromSelect = document.getElementById('month-from-filter');
+    const mToSelect = document.getElementById('month-to-filter');
+    const sortSelect = document.getElementById('sort-filter');
+    const monthFrom = mFromSelect ? parseInt(mFromSelect.value) : 0;
+    const monthTo = mToSelect ? parseInt(mToSelect.value) : 11;
     const yearFilter = yInput ? yInput.value : new Date().getFullYear();
-    const displayMonth = monthFilter === 'all' ? 'Annual' : monthNames[parseInt(monthFilter)];
+    const sortOrder = sortSelect ? sortSelect.value : 'asc';
+
+    // Build display period
+    let displayPeriod;
+    if (monthFrom === monthTo) {
+        displayPeriod = `${monthNames[monthFrom]} ${yearFilter}`;
+    } else {
+        displayPeriod = `${monthNames[monthFrom]} - ${monthNames[monthTo]} ${yearFilter}`;
+    }
 
     const filterFn = (r) => {
         const d = new Date(r[1]);
-        return (monthFilter === 'all' || d.getMonth() === parseInt(monthFilter)) && d.getFullYear() === parseInt(yearFilter);
+        const m = d.getMonth();
+        return m >= monthFrom && m <= monthTo && d.getFullYear() === parseInt(yearFilter);
     };
 
     const fInc = (currentReportData.income || []).slice(1).filter(filterFn);
@@ -140,12 +157,25 @@ function renderFilteredReport() {
     const tInc = fInc.reduce((s, r) => s + (parseFloat(r[3]) || 0), 0);
     const tExp = fExp.reduce((s, r) => s + (parseFloat(r[3]) || 0), 0);
 
+    // Merge and sort
+    const allRows = [...fInc.map(r => ({r, type:'Income'})), ...fExp.map(r => ({r, type:'Expenses'}))];
+    allRows.sort((a, b) => {
+        const diff = new Date(a.r[1]) - new Date(b.r[1]);
+        return sortOrder === 'desc' ? -diff : diff;
+    });
+
     container.innerHTML = `
         <div class="stat-card report-controls no-print">
             <div class="input-field"><label>YEAR</label><input type="number" id="year-filter" value="${yearFilter}" onchange="renderFilteredReport()"></div>
-            <div class="input-field"><label>MONTH</label><select id="month-filter" onchange="renderFilteredReport()">
-                <option value="all">All</option>
-                ${monthNames.map((m,i)=>`<option value="${i}" ${monthFilter == i ? 'selected' : ''}>${m}</option>`).join('')}
+            <div class="input-field"><label>FROM</label><select id="month-from-filter" onchange="renderFilteredReport()">
+                ${monthNames.map((m,i)=>`<option value="${i}" ${monthFrom === i ? 'selected' : ''}>${m}</option>`).join('')}
+            </select></div>
+            <div class="input-field"><label>TO</label><select id="month-to-filter" onchange="renderFilteredReport()">
+                ${monthNames.map((m,i)=>`<option value="${i}" ${monthTo === i ? 'selected' : ''}>${m}</option>`).join('')}
+            </select></div>
+            <div class="input-field"><label>SORT</label><select id="sort-filter" onchange="renderFilteredReport()">
+                <option value="asc" ${sortOrder === 'asc' ? 'selected' : ''}>Oldest First</option>
+                <option value="desc" ${sortOrder === 'desc' ? 'selected' : ''}>Newest First</option>
             </select></div>
             <div class="report-actions">
                 <button class="btn-secondary btn-export-csv" onclick="exportToCSV()" title="Export for Excel">
@@ -161,7 +191,7 @@ function renderFilteredReport() {
         <div id="report-to-print">
             <div class="stat-card" style="padding: 20px 15px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--primary); padding-bottom:15px; margin-bottom:25px">
-                    <div><h2 style="color:var(--primary); margin:0">Pilgrims Baptist Church</h2><p style="margin:5px 0; font-size:0.85rem;">Financial Ledger: ${displayMonth} ${yearFilter}</p></div>
+                    <div><h2 style="color:var(--primary); margin:0">Pilgrims Baptist Church</h2><p style="margin:5px 0; font-size:0.85rem;">Financial Ledger: ${displayPeriod}</p></div>
                     <img src="youth_green.png" width="60">
                 </div>
                 <div class="summary-grid">
@@ -171,8 +201,8 @@ function renderFilteredReport() {
                 </div>
                 ${hasData ? `
                     <table class="compact-table">
-                        <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
-                        <tbody id="ledger-body">${fInc.map(r => renderRow(r, 'Income')).join('')}${fExp.map(r => renderRow(r, 'Expenses')).join('')}</tbody>
+                        <thead><tr><th>Date</th><th>Description</th><th>Recorder</th><th style="text-align:right">Amount</th></tr></thead>
+                        <tbody id="ledger-body">${allRows.map(item => renderRow(item.r, item.type)).join('')}</tbody>
                     </table>` : renderEmptyState()}
             </div>
         </div>`;
@@ -192,10 +222,8 @@ function renderRow(r, type) {
     return `
     <tr data-type="${type}" data-json='${JSON.stringify(r).replace(/'/g, "&apos;")}'>
         <td>${new Date(r[1]).toLocaleDateString()}</td>
-        <td>
-            ${isIncome ? r[5] : r[2]} 
-            <br><small style="color:gray">${r[4]}</small>
-        </td>
+        <td>${isIncome ? r[5] : r[2]}</td>
+        <td>${r[4]}</td>
         <td style="text-align:right; font-weight: 700; color: ${amountColor}">
             ${formattedAmount}
         </td>
@@ -436,7 +464,38 @@ function notify(message, iconName) {
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 3500);
 }
 
-function exportPDF() { html2pdf().from(document.getElementById('report-to-print')).set({ margin: 0.5, filename: 'PBC_Report.pdf' }).save(); }
+function exportPDF() {
+    const reportEl = document.getElementById('report-to-print');
+    const card = reportEl.querySelector('.stat-card');
+    if (card) { card.style.padding = '8px 12px 0 12px'; card.style.margin = '0'; card.style.boxShadow = 'none'; card.style.border = 'none'; }
+    html2pdf().from(reportEl).set({
+        margin: [0.08, 0.15, 0.08, 0.15],
+        filename: 'PBC_Report.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    }).toPdf().get('pdf').then(function(pdf) {
+        if (card) { card.style.padding = ''; card.style.margin = ''; card.style.boxShadow = ''; card.style.border = ''; }
+        const totalPages = pdf.internal.getNumberOfPages();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        pdf.setPage(totalPages);
+        const lineY = pageHeight - 1.0;
+        const lineLen = 2.5;
+        const leftX = 0.8;
+        const rightX = pageWidth - 0.8 - lineLen;
+        pdf.setDrawColor(51, 51, 51);
+        pdf.setLineWidth(0.008);
+        pdf.line(leftX, lineY, leftX + lineLen, lineY);
+        pdf.line(rightX, lineY, rightX + lineLen, lineY);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'bold');
+        const prep = 'Prepared by:';
+        pdf.text(prep, leftX + (lineLen - pdf.getTextWidth(prep)) / 2, lineY + 0.18);
+        const noted = 'Noted by:';
+        pdf.text(noted, rightX + (lineLen - pdf.getTextWidth(noted)) / 2, lineY + 0.18);
+        pdf.save('PBC_Report.pdf');
+    });
+}
 
 function addSet(t) { 
     const v = document.getElementById(t==='inc'?'ni':'ne').value; 

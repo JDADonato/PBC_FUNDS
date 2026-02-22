@@ -40,6 +40,7 @@ function showSection(section, btn) {
     const render = document.getElementById('content-render');
     render.innerHTML = ''; 
 
+    localStorage.setItem('pbc_current_section', section);
     switch (section) {
         case 'income': renderIncomeForm(render); break;
         case 'expenses': renderExpenseForm(render); break;
@@ -127,9 +128,21 @@ function renderFilteredReport() {
     const mFromSelect = document.getElementById('month-from-filter');
     const mToSelect = document.getElementById('month-to-filter');
     const sortSelect = document.getElementById('sort-filter');
-    const monthFrom = mFromSelect ? parseInt(mFromSelect.value) : 0;
-    const monthTo = mToSelect ? parseInt(mToSelect.value) : 11;
+
+    // Auto-detect month range from data on first render
+    let defaultFrom = 0, defaultTo = 11;
     const yearFilter = yInput ? yInput.value : new Date().getFullYear();
+    if (!mFromSelect || !mToSelect) {
+        const yr = parseInt(yearFilter);
+        const allRecords = [...(currentReportData.income || []).slice(1), ...(currentReportData.expenses || []).slice(1)];
+        const monthsWithData = allRecords.map(r => new Date(r[1])).filter(d => d.getFullYear() === yr).map(d => d.getMonth());
+        if (monthsWithData.length > 0) {
+            defaultFrom = Math.min(...monthsWithData);
+            defaultTo = Math.max(...monthsWithData);
+        }
+    }
+    const monthFrom = mFromSelect ? parseInt(mFromSelect.value) : defaultFrom;
+    const monthTo = mToSelect ? parseInt(mToSelect.value) : defaultTo;
     const sortOrder = sortSelect ? sortSelect.value : 'asc';
 
     // Build display period
@@ -175,11 +188,11 @@ function renderFilteredReport() {
             <div class="report-actions">
                 <button class="btn-secondary btn-export-csv" onclick="exportToCSV()" title="Export for Excel">
                     <i data-lucide="file-spreadsheet"></i>
-                    <span class="btn-text-mobile">Export CSV</span>
+                    <span class="btn-label-full">Export CSV</span><span class="btn-label-short">CSV</span>
                 </button>
                 <button class="btn-action btn-export-pdf" onclick="exportPDF()">
                     <i data-lucide="download"></i>
-                    <span class="btn-text">PDF Report</span>
+                    <span class="btn-label-full">PDF Report</span><span class="btn-label-short">PDF</span>
                 </button>
             </div>
         </div>
@@ -196,7 +209,7 @@ function renderFilteredReport() {
                 </div>
                 ${hasData ? `
                     <table class="compact-table">
-                        <thead><tr><th>Date</th><th>Description</th><th>Recorder</th><th style="text-align:right">Amount</th></tr></thead>
+                        <thead><tr><th>Date</th><th>Description</th><th class="recorder-col">Recorder</th><th style="text-align:right">Amount</th></tr></thead>
                         <tbody id="ledger-body">${allRows.map(item => renderRow(item.r, item.type)).join('')}</tbody>
                     </table>` : renderEmptyState()}
             </div>
@@ -217,8 +230,8 @@ function renderRow(r, type) {
     return `
     <tr data-type="${type}" data-json='${JSON.stringify(r).replace(/'/g, "&apos;")}'>
         <td>${new Date(r[1]).toLocaleDateString()}</td>
-        <td>${isIncome ? r[5] : r[2]}</td>
-        <td>${r[4]}</td>
+        <td>${isIncome ? r[5] : r[2]}<span class="recorder-mobile"><br><small style="color:gray">${r[4]}</small></span></td>
+        <td class="recorder-col">${r[4]}</td>
         <td style="text-align:right; font-weight: 700; color: ${amountColor}">
             ${formattedAmount}
         </td>
@@ -462,14 +475,26 @@ function notify(message, iconName) {
 function exportPDF() {
     const reportEl = document.getElementById('report-to-print');
     const card = reportEl.querySelector('.stat-card');
-    if (card) { card.style.padding = '8px 12px 0 12px'; card.style.margin = '0'; card.style.boxShadow = 'none'; card.style.border = 'none'; }
+    if (card) { card.style.padding = '0 12px 0 12px'; card.style.margin = '0'; card.style.boxShadow = 'none'; card.style.border = 'none'; card.style.borderRadius = '0'; }
+    reportEl.style.padding = '0';
+    reportEl.style.margin = '0';
+    // Force desktop table layout for PDF (show Recorder column, hide inline recorder)
+    reportEl.querySelectorAll('.recorder-col').forEach(el => el.style.display = 'table-cell');
+    reportEl.querySelectorAll('.recorder-mobile').forEach(el => el.style.display = 'none');
+    reportEl.querySelectorAll('.compact-table th, .compact-table td').forEach(el => { el.style.whiteSpace = 'nowrap'; el.style.width = '1%'; });
     html2pdf().from(reportEl).set({
         margin: [0.08, 0.15, 0.08, 0.15],
         filename: 'PBC_Report.pdf',
         html2canvas: { scale: 2 },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     }).toPdf().get('pdf').then(function(pdf) {
-        if (card) { card.style.padding = ''; card.style.margin = ''; card.style.boxShadow = ''; card.style.border = ''; }
+        if (card) { card.style.padding = ''; card.style.margin = ''; card.style.boxShadow = ''; card.style.border = ''; card.style.borderRadius = ''; }
+        reportEl.style.padding = '';
+        reportEl.style.margin = '';
+        // Restore mobile-responsive styles
+        reportEl.querySelectorAll('.recorder-col').forEach(el => el.style.display = '');
+        reportEl.querySelectorAll('.recorder-mobile').forEach(el => el.style.display = '');
+        reportEl.querySelectorAll('.compact-table th, .compact-table td').forEach(el => { el.style.whiteSpace = ''; el.style.width = ''; });
         const totalPages = pdf.internal.getNumberOfPages();
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
@@ -508,7 +533,10 @@ function delSet(t,i) {
 
 window.onload = () => { 
     syncOfflineData(); 
-    showSection('income', document.querySelector('.nav-btn')); 
+    const saved = localStorage.getItem('pbc_current_section') || 'income';
+    const navBtns = document.querySelectorAll('.nav-btn');
+    const matchBtn = [...navBtns].find(b => b.getAttribute('onclick')?.includes(saved)) || navBtns[0];
+    showSection(saved, matchBtn); 
 };
 
 if ('serviceWorker' in navigator) {

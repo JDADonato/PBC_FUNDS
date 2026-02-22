@@ -1,8 +1,3 @@
-/**
- * PILGRIMS BAPTIST CHURCH - FINANCE PORTAL
- * Logic Engine: Audit Logs, Offline Resilience, Password Visibility, and Data Portability
- */
-
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwnY1HKQfGRhwqbmNX9d3bZCVFVc5XOjKhkOUB6rhAo7rWbXpWy9Kvx7_JQ3WYZttTG/exec";
 const ADMIN_PASS = "pilgrimsbaptistchurch";
 

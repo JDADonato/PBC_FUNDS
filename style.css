@@ -1,4 +1,3 @@
-/* --- PILGRIMS BAPTIST CHURCH FINANCE PORTAL --- */
 :root {
     --primary: #3c6a4d;
     --primary-hover: #2d503a;
@@ -148,6 +147,9 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
 .compact-table tbody tr:hover { background-color: #f8fafc; }
 .compact-table tbody tr:active { background-color: var(--primary-light); }
 
+/* Desktop: hide inline recorder, show column */
+.recorder-mobile { display: none; }
+
 /* --- REPORT CONTROLS --- */
 .report-controls { 
     display: flex; 
@@ -170,9 +172,8 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
     align-items: flex-end;
 }
 
-.btn-export-csv .btn-text-mobile {
-    display: none;
-}
+/* Desktop: show full labels, hide short labels */
+.btn-label-short { display: none; }
 
 /* --- BUTTONS (Centered Content Fix) --- */
 .btn-action, .btn-secondary, .btn-danger-outline { 
@@ -304,31 +305,42 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
     .viewport { margin-left: 0; padding: 100px 15px 20px; }
     .no-mobile { display: none; }
 
+    /* Table: hide Recorder column, allow wrapping */
+    .recorder-col { display: none; }
+    .compact-table th, .compact-table td { white-space: normal; width: auto; }
+
     /* Summary Grid Mobile Layout */
     .summary-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .mini-stat { padding: 12px 5px; }
     .mini-stat span { font-size: 0.6rem; }
     .mini-stat strong { font-size: 0.85rem; }
 
-    /* Report Controls Fix */
+    /* Report Controls: 3 rows × 2 columns */
     .report-controls {
-        flex-direction: row; 
-        flex-wrap: wrap; 
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 10px;
         padding: 15px 10px;
     }
 
-    .report-controls .input-field {
-        flex: 1 1 calc(50% - 10px);
+    /* Row 1: Year (1st child) + Sort (4th child) */
+    .report-controls > .input-field:nth-child(1) { order: 1; }
+    .report-controls > .input-field:nth-child(4) { order: 2; }
+    /* Row 2: From (2nd child) + To (3rd child) */
+    .report-controls > .input-field:nth-child(2) { order: 3; }
+    .report-controls > .input-field:nth-child(3) { order: 4; }
+
+    .report-controls > .input-field {
         min-width: 0;
     }
 
+    /* Row 3: Export buttons span full width */
     .report-actions {
-        width: 100%;
+        order: 5;
+        grid-column: 1 / -1;
         margin-left: 0;
-        margin-top: 15px;
         display: flex;
-        flex-direction: column; 
+        flex-direction: row;
         gap: 10px;
     }
 
@@ -337,10 +349,9 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
         height: 48px;
     }
 
-    .btn-export-csv .btn-text-mobile {
-        display: inline;
-        font-weight: 700;
-    }
+    /* Mobile: show short labels, hide full labels */
+    .btn-label-full { display: none; }
+    .btn-label-short { display: inline; font-weight: 700; }
 
     /* Modals Fix */
     .modal-card { padding: 25px 20px; }
